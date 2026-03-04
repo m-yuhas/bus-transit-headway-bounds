@@ -1,4 +1,6 @@
 """Worst Case Analysis Algorithms."""
+import math
+
 from policies import *
 from routes import *
 
@@ -63,8 +65,7 @@ def wcht(route: List[Stop], start_times: List[float], t_max: float) -> List[floa
         if carry_in[i] is not None:
             wcht[i] = max(wcht[i], arrivals[i][0] - carry_in[i])
         for j in range(1, M):
-            if arrivals[i][j] > departures[i][j - 1]:
-                wcht[i] = max(wcht[i], arrivals[i][j] - departures[i][j - 1])
+            wcht[i] = max(wcht[i], arrivals[i][j] - departures[i][j - 1])
         arrivals[i] = []
         carry_in[i] = departures[i][-1]
         t = departures[i][-1]
@@ -84,18 +85,18 @@ def wctt(route: List[Stop], start_times: List[float], wcht: List[float], start_s
     else:
         idxs = list(range(start_stop, N))
         idxs.extend(list(range(end_stop)))
-    slowest = []
-    fastest = []
+    a_earliest = 0
+    a_latest = 0
     for i in idxs[::-1]:
-        d_earliest = max(route[i].tau)
-        d_latest = min(route[i].tau)
-
+        d_earliest = a_earliest + max(route[i].tau)
+        d_latest = a_latest + min(route[i].tau)
         if isinstance(route[i].policy, BolehPolicy):
             a_earliest = d_earliest + max(route[i].delta)
             a_latest = d_latest + min(route[i].delta)
         elif isinstance(route[i].policy, LeakyBucketPolicy):
-            a_earliest = d_earliest + max(max(route[i].delta), route[i].policy.time_delta)
+            a_earliest = d_earliest + max(max(route[i].delta), route[i].policy.time_delta * (1 + len(start_times) - math.ceil(sum([min(s.delta) + min(s.tau) for s in route]) / route[i].policy.time_delta)))
             a_latest = d_latest + min(route[i].delta)
+            # TODO: Check that max holding is possible given previous scheduled stop
         elif isinstance(route[i].policy, RatioDrivenPolicy):
             a_earliest = d_earliest + max(max(route[i].delta), route[i].policy.max_holding) #TODO:
             a_latest = d_latest + min(route[i].delta)
@@ -106,4 +107,64 @@ def wctt(route: List[Stop], start_times: List[float], wcht: List[float], start_s
             raise Exception(f"Policy {type(route[i].policy)} is not yet supported!")
 
 
-    return d_earliest
+    return a_earliest
+
+def wctt2(route: List[Stop], start_times: List[float], wcht: List[float], start_stop: int, end_stop: int) -> float:
+    """Calculate worst case in-vehicle travel time."""
+    N = len(route)
+    M = len(start_times)
+
+    # Calculate worst case holding for all schedule driven stops
+    sch_stops = {}
+    t_diff = 0
+    t_slow = []
+    t_fast = []
+    for idx, stop in enumerate(route):
+        if isinstance(stop.policy, BolehPolicy):
+            t_slow.append(max(stop.tau) + max(stop.delta))
+            t_fast.append(min(stop.tau) + min(stop.delta))
+            t_diff += t_fast[-1]
+        elif isinstance(stop.policy, LeakyBucketPolicy):
+            sch_stops[idx] = t_diff
+            t_diff = 0
+            t_slow.append(max(stop.tau))
+            t_fast.append(min(stop.tau))
+        elif isinstance(stop.policy, RatioDrivenPolicy):
+            phi_slow = stop.policy.get_hold_time(**{
+                'd_leader': 0,
+                'a_follower': wcht[idx],
+                't': 0,
+            })
+            phi_fast = stop.policy.get_hold_time(**{
+                'd_leader': 0,
+                'a_follower': wcht[idx],
+                't': wcht[idx],
+            })
+            t_slow.append(max(stop.tau) + max(max(stop.delta), phi_slow))
+            t_fast.append(min(stop.tau) + min(min(stop.delta), phi_fast))
+            t_diff += t_fast[-1]
+        else:
+            raise Exception(f"Policy {type(route[i].policy)} is not yet supported!")
+    
+    if t_diff > 0 and len(sch_stops) > 0:
+        sch_stops[min([i for i in sch_stops.keys()])] += t_diff
+
+    for sch_stop in sch_stops:
+        phi_slow = route[sch_stop].policy.time_delta * max(0, M - math.ceil(sch_stops[sch_stop] / route[sch_stop].policy.time_delta))
+        t_slow[sch_stop] += max(max(route[sch_stop].delta), phi_slow)
+
+    # Loop over stops adding worst-case travel between each
+    idxs = []
+    if start_stop == end_stop:
+        return 0
+    elif start_stop < end_stop:
+        idxs = list(range(start_stop, end_stop))
+    else:
+        idxs = list(range(start_stop, N))
+        idxs.extend(list(range(end_stop)))
+
+    travel_time = 0
+    for i in idxs[::-1]:
+        travel_time += t_slow[i]
+
+    return travel_time

@@ -116,7 +116,7 @@ class RatioDrivenPolicy(BasePolicy):
             return 0
         if headway / tailway < self.activation_ratio:
             d_self = a_follower - (1 / self.target_ratio) * (a_self - d_leader)
-            return min(max(0, d_self - a_self), self.max_holding)
+            return min(max(0, (d_self - a_self) / 2), self.max_holding)
         else:
             return 0
 
