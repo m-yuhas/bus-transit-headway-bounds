@@ -109,7 +109,7 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
                     }
                     v.policy_holding = route[v.stop].policy.get_hold_time(**policy_args)
                     v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
-                    route[v.stop].vehicles.append(v)
+                    #route[v.stop].vehicles.append(v)
 
             elif v.state == VehicleState.DWELL:
                 v.next_state_timer -= dt
@@ -148,6 +148,10 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
             else:
                 raise Exception(f'Invalid state for vehicle {v}')
 
+        #for idx, stop in enumerate(route):
+        #    stop.vehicles = [v for v in vehicles if v.stop == idx and (v.state == VehicleState.DWELL or v.state == VehicleState.IDLE)]
+        #    stop.init_list = [v for v in vehicles if v.stop == idx and v.state == VehicleState.INIT]
+        
         # Calculate headway
         for idx, stop in enumerate(route):
             if len(stop.init_list) > 0:
@@ -164,7 +168,7 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
 
         # Update clock
         dt = min([v.next_state_timer for v in vehicles])
-        #print(f'Init: {len(route[0].vehicles)}: {[v.travel_times[0][0] for v in vehicles]}')
+        #print(f'Init: {len(route[0].vehicles)}/{len(route[0].init_list)}: {[v.travel_times[0][0] for v in vehicles]}')
         #print(f'Sim Time: {t}; dt: {dt}')
 
     return {'headway': headway_times, 'travel': travel_times}
