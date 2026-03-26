@@ -206,5 +206,16 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Custom
+# Binary data storage formats
+.gz
 .pkl
+.tar
+.tar.gz
+.xz
+.zip
+
+# Ignore tabular data
+gtfs/*.txt
+gtfs/*.csv
+data/*.txt
+data/*.csv
