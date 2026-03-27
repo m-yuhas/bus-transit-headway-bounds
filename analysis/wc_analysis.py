@@ -2,8 +2,8 @@
 import math
 
 
-from policies import *
-from routes import *
+from .policies import *
+from .routes import *
 
 
 def headway_bounds(route: list[Stop], start_times: list[float], t_max: float = float('inf')) -> tuple[list[float], list[float]]:
@@ -26,6 +26,7 @@ def headway_bounds(route: list[Stop], start_times: list[float], t_max: float = f
     carry_in = [None] * N
     converged = False
     departures = start_times
+
     while not converged and departures[-1] < t_max:
         # Arrivals at stop i
         arrivals = []
@@ -34,37 +35,44 @@ def headway_bounds(route: list[Stop], start_times: list[float], t_max: float = f
             tau = min(max(min(stop.tau), arrivals[j - 1] - departures[j]), max(stop.tau))
             arrivals.append(departures[j] + tau)
 
-        # Departures from stop i+1
+        # Update index
         l += (i + 1) // N
         i = (i + 1) % N
+        old_departures = departures
         departures = []
         stop = route[i]
-        a_leader_next_max = departures[0] + sum([max(stop.tau) + max(stop.delta) for stop in route])
+
+        # Departures from stop i+1
         policy_args = {
             't': arrivals[0],
-            'n_prev_veh': j + l * M,
+            #'n_prev_veh': j + l * M,
             'd_leader': carry_in[i],
-            'a_follower': departures[1] + max(stop.tau) if M > 1 else a_leader_next_max,
+            'a_follower': (old_departures[1] + max(stop.tau) if M > 1
+                           else old_departures[0] + sum([max(stop.tau) + max(stop.delta) for stop in route])
+            ),
         }
         departures.append(arrivals[0] + max(max(stop.delta), stop.policy.get_hold_time(**policy_args)))
         for j in range(1, M):
-            a_leader_nxt_min = departures[0] + sum([min(stop.tau) + min(stop.delta) for stop in route])
             policy_args = {
                 't': arrivals[j],
-                'n_prev_veh': j + l * M,
+                #'n_prev_veh': j + l * M,
                 'd_leader': departures[j - 1],
-                'a_follower': departures[j + 1] + min(stop.tau) if j + 1 < M else a_leader_nxt_min,
+                'a_follower': (old_departures[j + 1] + min(stop.tau) if j + 1 < M
+                               else old_departures[0] + sum([min(stop.tau) + min(stop.delta) for stop in route])
+                ),
             }
             delta = min(max(min(stop.delta), departures[j - 1] - arrivals[j]), max(stop.delta))
             departures.append(arrivals[j] + max(delta, stop.policy.get_hold_time(**policy_args)))
 
         # Update headway bounds
         if carry_in[i] is not None:
-            wcht[i] = max(wcht[i], max(0, arrivals[i][0] - carry_in[i]))
-        for j in range(1, M):
-            bcht[i] = min(bcht[i], max(0, arrivals[i][j] - departures[i][j-1]))
-        arrivals[i] = []
-        carry_in[i] = departures[i][-1]
-        t = departures[i][-1]
+            if max(0, arrivals[0] - carry_in[i]) > htub[i]:
+                htub[i] = max(0, arrivals[0] - carry_in[i])
+            else:
+                converged = True
+        if max(0, arrivals[1] - departures[0]) < htlb[i]:
+            htlb[i] = max(0, arrivals[1] - departures[0])
+            converged = False
+        carry_in[i] = departures[-1]
                 
-    return wcht, bcht
+    return htub, htlb

@@ -1,17 +1,24 @@
 """Probabilistic Route Analysis."""
-from typing import Dict, List
 from dataclasses import dataclass
 from enum import Enum
+
 
 import itertools
 import random
 import statistics
 
-from policies import *
-from routes import *
+
+from .policies import *
+from .routes import *
 
 
 class VehicleState(Enum):
+    """A vehicle can be:
+    - INItializing, i.e., it hasn't yet departed its initial stop;
+    - DWELLing, i.e., waiting at a stop for passengers to embark and alight;
+    - IDLE, i.e., waiting at a stop doing nothing;
+    - TRAVELing, i.e., moving from one stop to the next.
+    """
     INIT = -1
     DWELL = 0
     IDLE = 1
@@ -20,16 +27,59 @@ class VehicleState(Enum):
 
 @dataclass
 class Vehicle:
+    """A vehicle serving a bus route.
+
+    :param stop: The vehicle's current stop.
+    :param state: The vehicle's current state within a stop.
+    :param next_state_timer: Time remaining until the vehicle's state is updated.
+    :param policy_holding: Hold time calculated for the vehicle by a stop's policy.
+    :param last_departure: List of times the vehicle last departed each stop.
+    :param travel_times: Matrix of travel times with dim 0 indicating the origin stop and dim 1 indicating the destination stop.
+    """
     stop: Stop
     state: VehicleState
     next_state_timer: float
     policy_holding: float
-    travel_times: List[float]
-    last_departure: List[float]
+    last_departure: list[float | None]
+    travel_times: list[list[float | None]]
 
 
-def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: int):
-    """Probabilistic Simulation."""
+def get_policy_args(route: list[Stop], vehicles: list[Vehicle], t: float, veh_idx: int) -> dict[str, Any]:
+    """Get the arguments to supply to a holding policy given the current vehicle positions in route.
+
+    .. important:: This function must not modify any data in route or vehicles.
+    .. note:: This function assumes that the vehicle list is ordered by position along the route.
+
+    :param route: The route being simulated.
+    :param vehicles: List of vehicles serving the route.
+    :param t: The current simulation time.
+    :param veh_idx: The index of the vehicle for which the hold time will be calculated.
+    """
+    N = len(route)
+    M = len(vehicles)
+    next_arr_est = t
+    if vehicles[veh_idx - 1].stop != vehicles[veh_idx].stop:
+        if vehicles[veh_idx - 1].state == VehicleState.DWELL:
+            next_arr_est += statistics.mean(route[vehicles[veh_idx - 1].stop].tau)
+            s = (vehicles[veh_idx - 1].stop + 1) % N
+            while s != vehicles[veh_idx].stop:
+                next_arr_est += (statistics.mean(route[s].delta) + statistics.mean(route[s].tau))
+                s = (s + 1) % N
+    return {
+        't': t,
+        'd_leader': vehicles[(veh_idx + 1) % M].last_departure[vehicles[veh_idx].stop],
+        'a_follower': next_arr_est,
+    }
+
+
+def simulate(route: list[Stop], start_times: list[float], t_max: float, seed: int = 0) -> dict[str, list]:
+    """Simulate a bus route and collect headway times at each stop and travel times between every stop pair.
+    
+    :param route: The route to analyze.
+    :param start_times: The list of start times at stop 0 for all vehicles serving the route.
+    :param t_max: Simulation cutoff time.
+    :param seed: Seed value for random number generator.
+    """
     random.seed(seed)
     N = len(route)
     M = len(start_times)
@@ -92,25 +142,8 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
                             travel_times[start_stop][v.stop].append(v.travel_times[start_stop][v.stop])
                     for end_stop in range(N):
                         v.travel_times[v.stop][end_stop] = 0
-
-                    next_arr_est = t
-                    if vehicles[idx - 1].stop != v.stop:
-                        if vehicles[idx - 1].state == VehicleState.DWELL:
-                            next_arr_est += statistics.mean(route[vehicles[idx - 1].stop].delta)
-                        next_arr_est += statistics.mean(route[vehicles[idx - 1].stop].tau)
-                        s = (vehicles[idx - 1].stop + 1) % N
-                        while s != v.stop:
-                            next_arr_est += (statistics.mean(route[s].delta) + statistics.mean(route[s].tau))
-                            s = (s + 1) % N
-                    policy_args = {
-                        't': t,
-                        'd_leader': vehicles[(idx + 1) % M].last_departure[v.stop],
-                        'a_follower': next_arr_est,
-                    }
-                    v.policy_holding = route[v.stop].policy.get_hold_time(**policy_args)
+                    v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
                     v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
-                    #route[v.stop].vehicles.append(v)
-
             elif v.state == VehicleState.DWELL:
                 v.next_state_timer -= dt
                 v.policy_holding -= dt
@@ -128,29 +161,11 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
                 v.next_state_timer -= dt
                 if v.next_state_timer <= 0:
                     v.state = VehicleState.IDLE
-                    next_arr_est = t
-                    if vehicles[idx - 1].stop != v.stop:
-                        if vehicles[idx - 1].state == VehicleState.DWELL:
-                            next_arr_est += statistics.mean(route[vehicles[idx - 1].stop].delta)
-                        next_arr_est += statistics.mean(route[vehicles[idx - 1].stop].tau)
-                        s = (vehicles[idx - 1].stop + 1) % N
-                        while s != v.stop:
-                            next_arr_est += (statistics.mean(route[s].delta) + statistics.mean(route[s].tau))
-                            s = (s + 1) % N
-                    policy_args = {
-                        't': t,
-                        'd_leader': vehicles[(idx + 1) % M].last_departure[v.stop],
-                        'a_follower': next_arr_est,
-                    }
-                    v.next_state_timer = route[v.stop].policy.get_hold_time(**policy_args)
+                    v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
                     v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
                     route[v.stop].vehicles.append(v)
             else:
                 raise Exception(f'Invalid state for vehicle {v}')
-
-        #for idx, stop in enumerate(route):
-        #    stop.vehicles = [v for v in vehicles if v.stop == idx and (v.state == VehicleState.DWELL or v.state == VehicleState.IDLE)]
-        #    stop.init_list = [v for v in vehicles if v.stop == idx and v.state == VehicleState.INIT]
         
         # Calculate headway
         for idx, stop in enumerate(route):
@@ -168,7 +183,5 @@ def simulate(route: List[Stop], start_times: List[float], t_max: float, seed: in
 
         # Update clock
         dt = min([v.next_state_timer for v in vehicles])
-        #print(f'Init: {len(route[0].vehicles)}/{len(route[0].init_list)}: {[v.travel_times[0][0] for v in vehicles]}')
-        #print(f'Sim Time: {t}; dt: {dt}')
 
     return {'headway': headway_times, 'travel': travel_times}

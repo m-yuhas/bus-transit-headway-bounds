@@ -1,9 +1,9 @@
 """Route Creation."""
-from typing import Any, TypedDict
+from typing import Any
 from dataclasses import dataclass
 
 
-from policies import *
+from .policies import *
 
 
 @dataclass
@@ -19,12 +19,10 @@ class Stop(object):
     policy: BasePolicy
 
 
-class StopConfig(TypedDict):
-    """Dictionary containing the required information to construct a ```Stop```.
-    
-    .. note::
-        Used only for type hints.
-    
+@dataclass
+class StopConfig(object):
+    """Configuration information required to construct a ```Stop```.
+
     :param tau: Tuple containing the minimum and maximum travel time to the next stop.
     :param delta: Tuple containing the minimum and maximum dwell time at this stop.
     :param policy: The holding policy governing this stop.
@@ -48,8 +46,8 @@ def route_factory(config: list[StopConfig]) -> list[Stop]:
     route = []
     for stop in config:
         route.append(Stop(
-            tau=stop['tau'],
-            delta=stop['delta'],
-            policy=stop['policy'](**stop['policy_args']),
+            tau=stop.tau,
+            delta=stop.delta,
+            policy=stop.policy(**stop.policy_args),
         ))
     return route
