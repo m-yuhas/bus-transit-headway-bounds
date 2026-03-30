@@ -60,11 +60,12 @@ def get_policy_args(route: list[Stop], vehicles: list[Vehicle], t: float, veh_id
     next_arr_est = t
     if vehicles[veh_idx - 1].stop != vehicles[veh_idx].stop:
         if vehicles[veh_idx - 1].state == VehicleState.DWELL:
-            next_arr_est += statistics.mean(route[vehicles[veh_idx - 1].stop].tau)
-            s = (vehicles[veh_idx - 1].stop + 1) % N
-            while s != vehicles[veh_idx].stop:
-                next_arr_est += (statistics.mean(route[s].delta) + statistics.mean(route[s].tau))
-                s = (s + 1) % N
+            next_arr_est += statistics.mean(route[vehicles[veh_idx - 1].stop].delta)
+        next_arr_est += statistics.mean(route[vehicles[veh_idx - 1].stop].tau)
+        s = (vehicles[veh_idx - 1].stop + 1) % N
+        while s != vehicles[veh_idx].stop:
+            next_arr_est += (statistics.mean(route[s].delta) + statistics.mean(route[s].tau))
+            s = (s + 1) % N
     return {
         't': t,
         'd_leader': vehicles[(veh_idx + 1) % M].last_departure[vehicles[veh_idx].stop],
@@ -161,8 +162,9 @@ def simulate(route: list[Stop], start_times: list[float], t_max: float, seed: in
                 v.next_state_timer -= dt
                 if v.next_state_timer <= 0:
                     v.state = VehicleState.IDLE
-                    v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
-                    v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
+                    #v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
+                    #v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
+                    v.last_departure[v.stop] = t
                     route[v.stop].vehicles.append(v)
             else:
                 raise Exception(f'Invalid state for vehicle {v}')

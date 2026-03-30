@@ -61,10 +61,7 @@ class ScheduleDrivenPolicy(BasePolicy):
         :return: Holding time.
         """
         t = kwargs['t']
-        if t >= self.schedule[self.idx]:
-            hold_time = 0.0
-        else:
-            hold_time = self.schedule[self.idx] - t
+        hold_time = max(0.0, self.schedule[self.idx] - t)
         self.idx = (self.idx + 1) % len(self.schedule)
         return hold_time
 
@@ -88,16 +85,9 @@ class InfiniteSchedulePolicy(BasePolicy):
         
         :keyword t: The current time.
         :return: Holding time.
-
-        # TODO: See if n_prev_veh is still need for DP
         """
         t = kwargs['t']
-        if 'n_prev_veh' in kwargs:
-            return max(0.0, self.time_delta * kwargs['n_prev_veh'] - t)
-        if t >= self.next_release:
-            hold_time = 0.0
-        else:
-            hold_time = self.next_release - t
+        hold_time = max(0.0, self.next_release - t)
         self.next_release += self.time_delta
         return hold_time
 
