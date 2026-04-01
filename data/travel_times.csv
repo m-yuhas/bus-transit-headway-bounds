@@ -1,0 +1,1 @@
+directionId,from_stop_id,to_stop_id,day_of_week,hour_of_day,mean_log_travel_time_s,std_log_travel_time_s,data_count
