@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+import copy
 import itertools
 import random
 import statistics
@@ -143,7 +144,16 @@ def simulate(route: list[Stop], start_times: list[float], t_max: float, seed: in
                             travel_times[start_stop][v.stop].append(v.travel_times[start_stop][v.stop])
                     for end_stop in range(N):
                         v.travel_times[v.stop][end_stop] = 0
-                    v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
+                    if not isinstance(route[v.stop].policy, MctsPolicy):
+                        v.policy_holding = route[v.stop].policy.get_hold_time(**get_policy_args(route, vehicles, t, idx))
+                    else:
+                        state = {
+                            'N': N,
+                            't': t,
+                            'vehicles': [copy.deepcopy(v) for v in vehicles],
+                            'route': [copy.deepcopy(s) for s in route],
+                        }
+                        v.policy_holding = route[v.stop].policy.get_hold_time(**{'state': state})
                     v.last_departure[v.stop] = t + max(v.next_state_timer, v.policy_holding)
             elif v.state == VehicleState.DWELL:
                 v.next_state_timer -= dt

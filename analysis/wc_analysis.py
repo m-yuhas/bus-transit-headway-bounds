@@ -1,4 +1,5 @@
 """Worst Case Analysis Algorithms."""
+import copy
 import math
 
 
@@ -53,6 +54,12 @@ def headway_bounds(route: list[Stop], start_times: list[float], t_max: float = f
             'a_follower': (departures[i_prev][1] + max(stop_prev.tau) if M > 1
                            else departures[i_prev][0] + sum([max(stop.tau) + max(stop.delta) for stop in route])
             ),
+            'state': {
+                't': arrivals[i][0],
+                'N': N,
+                'vehicles': [],
+                'route': copy.deepcopy(route),
+            },
         }
         departures[i].append(arrivals[i][0] + max(max(stop.delta), stop.policy.get_hold_time(**policy_args)))
         for j in range(1, M):
@@ -62,6 +69,12 @@ def headway_bounds(route: list[Stop], start_times: list[float], t_max: float = f
                 'a_follower': (departures[i_prev][j + 1] + min(stop_prev.tau) if j + 1 < M
                                else departures[i][0] + sum([min(stop.tau) + min(stop.delta) for stop in route])
                 ),
+                'state': {
+                    't': arrivals[i][0],
+                    'N': N,
+                    'vehicles': [],
+                    'route': copy.deepcopy(route),
+                },
             }
             delta = min(max(min(stop.delta), departures[i][j - 1] - arrivals[i][j]), max(stop.delta))
             departures[i].append(arrivals[i][j] + max(delta, stop.policy.get_hold_time(**policy_args)))
