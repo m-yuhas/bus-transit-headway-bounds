@@ -34,6 +34,47 @@ class StopConfig(object):
     policy_args: dict[str, Any]
 
 
+@dataclass
+class RouteConfig(object):
+    """Configuration information that defines a route variant under test.
+    
+    :param name: Name used for identification.
+    :param route: List of stops.
+    :param start_times: List of times when vehicles start serving the route.
+    """ 
+    name: str
+    route: list[Stop]
+    start_times: list[float]
+
+
+@dataclass
+class HeadwayResults(object):
+    """Headway experiment results.
+    
+    :param upper_bound: List of maximum possible headway at each stop.
+    :param lower_bound: List of minimum possible headway at each stop.
+    :param observed: List of headway times observed during simulation at each stop.
+    """ 
+    upper_bound: list[float]
+    lower_bound: list[float]
+    observed: list[list[float]]
+
+
+@dataclass
+class RouteResults(object):
+    """Results from an experiment on one route variant.
+    
+    :param name: Name used for identification.
+    :param route: The route under consideration.
+    :param headway: Simulated and analytical headway results for the route.
+    :param travel_time: Measured travel times between all pairs of stops.
+    """ 
+    name: str
+    route: list[Stop]
+    headway: HeadwayResults
+    travel_time: list[list[list[float]]]
+
+
 def route_factory(config: list[StopConfig]) -> list[Stop]:
     """Create a new instance of a route from a template.
 
