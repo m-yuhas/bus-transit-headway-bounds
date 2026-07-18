@@ -138,3 +138,53 @@ class HeadwayDrivenPolicy(BasePolicy):
             return min(max(0, (a_follower + d_leader - 2 * a_self) / 2), self.max_holding)
         else:
             return 0.0
+
+class SlackDrivenPolicy(BasePolicy):
+    """Hold buses based on slack time and stop control efficiency coefficient.
+
+    This policy is based on:
+    ```
+    @article{liu_improving_2018,
+        author  = {Liu, Shuozhi and Luo, Xia and Jin, Peter J.},
+        title   = {Improving Bus Operations through Integrated Dynamic Holding Control and Schedule Optimization},
+        journal = {Journal of Advanced Transportation},
+        volume  = {2018},
+        number  = {1},
+        pages   = {9714046},
+        year    = {2018},
+        doi     = {10.1155/2018/9714046},
+    }
+    ```
+
+    :param headway: The scheduled headway between buses.
+    :param scheduled_slack: Scheduled slack time in minutes.
+    :param efficiency_coefficient: Efficiency coefficient 'f' for this stop.
+    :param beta: The demand rate at this stop.
+    """
+    def __init__(self, headway: float, scheduled_slack: float, efficiency_coefficient: float, beta: float) -> None:
+        self.H = headway
+        self.d = scheduled_slack
+        self.f = efficiency_coefficient
+        self.beta = beta
+        self.t_curr = None
+        self.t_prev = None
+        self.a_prev = None
+
+    def get_hold_time(self, **kwargs: dict[str, Any]) -> float:
+        """Determine holding time given the bus's arrival time.
+        
+        :keyword t: The current time.
+        :return: Holding time.
+        """
+        a_curr = kwargs['t']
+        if self.t_curr is None:
+            self.t_curr = a_curr
+            self.a_prev = a_curr
+            return 0
+        else:
+            self.t_prev = self.t_curr
+            self.t_curr += self.H
+        eps_curr = a_curr - self.t_curr
+        eps_prev = self.a_prev - self.t_prev
+        self.a_prev = a_curr
+        return max(0, self.d - (1 + self.beta) * eps_curr + self.beta * eps_prev + self.f * eps_curr)

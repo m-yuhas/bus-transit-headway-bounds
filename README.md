@@ -1,5 +1,22 @@
 # Bus Transit Headway Bounds
-This repository contains code to reproduce the results in the submission "Computing Headway Bounds under Worst-Case Bunching in Fixed-Line Transit Systems."
+This repository contains code to reproduce the results in the papers:
+
+```
+@inproceedings{yuhas_computing_2026,
+	title = {Computing {Headway} {Bounds} under {Worst}-{Case} {Bunching} in {Fixed}-{Line} {Transit} {Systems}},
+	booktitle = {2026 {IEEE} 32nd {International} {Conference} on {Embedded} and {Real}-{Time} {Computing} {Systems} and {Applications} ({RTCSA})},
+	author = {Yuhas, Michael and Gunter, George and Talusan, Jose Paulo and Laszka, Aron and Freudberg, Dan and Dubey, Abhishek},
+	month = aug,
+	year = {2026},
+}
+
+@inproceedings{yuhas_demo_2026,
+	title = {Demo: {Rapid} {Optimization} of {Fixed}-{Line} {Transit} {Holding} {Policies}},
+	booktitle = {2026 {IEEE} 32nd {International} {Conference} on {Embedded} and {Real}-{Time} {Computing} {Systems} and {Applications} ({RTCSA})},
+	author = {Yuhas, Michael and Talusan, Jose Paulo and Laszka, Aron and Freudberg, Dan and Dubey, Abhishek},
+	year = {2026},
+}
+```
 
 ## I. Setup
 You can either run the notebooks in this repository directly, or use Docker.
@@ -58,6 +75,8 @@ If you have historical data for your own local transit route, the insructions in
 
 Once the files in the ```gtfs``` and ```data``` directories have been prepared, you can run the cells in ```case_study.ipynb``` to generate the case study figures.
 
+To reproduce the results from the route design problem, run the cells in ```route_optimization.ipynb```.
+
 ## III. Organization
 * **analysis** - Python module with the utilities for analytical and probabilistic route analysis
 * **data** - Historical travel and dwell time data for the case study
@@ -65,3 +84,4 @@ Once the files in the ```gtfs``` and ```data``` directories have been prepared, 
 * **gtfs** - GTFS for the case study
 * **case_study.ipynb** - iPython notebook for the case study
 * **experiments.ipynb** - iPython notebook for the theoretical experiments
+* **route_optimization.ipynb** - iPython notebook that runs a genetic algorithm to optimize holding policies along a route

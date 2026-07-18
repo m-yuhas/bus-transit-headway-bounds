@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+import copy
 import itertools
 import random
 import statistics
